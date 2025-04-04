@@ -67,7 +67,7 @@ const gradientMaterial = new THREE.ShaderMaterial({
     float gradient = 0.5 + 0.5 * sin(time + vUv.y * 1.0);
     
     // Sepia tones
-   vec3 color1 = vec3(0.9, 0.9, 0.9); // Gray
+   vec3 color1 = vec3(0.8, 0.8, 0.7); // Gray
       vec3 color2 = vec3(1.0, 1.0, 1.0); // White
       
     vec3 mixedColor = mix(color1, color2, gradient);
@@ -184,6 +184,11 @@ function animate(timestamp) {
   keyLight.position.x = Math.sin(angle) * -4;  // 10 is the radius of rotation on the X-axis
 
   keyLight.position.y = 10;  // Keep light at a fixed height
+  if (timestamp - lastDirectionChangeTime >= directionChangeInterval) {
+    rotateDirection = -rotateDirection;
+    controls.autoRotateSpeed = rotateDirection * 0.09;
+    lastDirectionChangeTime = timestamp;
+  }
 
 
 
