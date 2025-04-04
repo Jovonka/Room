@@ -38,7 +38,7 @@ window.addEventListener("resize", () => {
 const renderer = new THREE.WebGLRenderer({ alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better shadow quality
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.physicallyCorrectLights = true;
 document.body.appendChild(renderer.domElement);
 
@@ -46,73 +46,42 @@ document.body.appendChild(renderer.domElement);
 const loader = new FBXLoader();
 const textureLoader = new TextureLoader();
 const models = [];
-// Array of video file paths
-const videoFiles = [
-  './videos/video1.mp4',
-  './videos/video2.mp4',
-  './videos/video3.mp4'
-  // Add more video paths here
-];
 
-// Randomly select a video file on each refresh
-const selectedVideo = videoFiles[Math.floor(Math.random() * videoFiles.length)];
-// Create a video element and set the selected video source
-const video = document.createElement('video');
-video.src = selectedVideo;
-video.loop = true;
-video.muted = true; // Mute video to prevent sound issues
-video.play();
-
-// Shader-based video material
-const brightness = 8.0;
-const videoSize = new THREE.Vector2(0.9, 0.1); // Keep it at 1, 1 to maintain the original size
-
-// Create the video texture
-const videoTexture = new THREE.VideoTexture(video);
-videoTexture.minFilter = THREE.LinearFilter;
-videoTexture.magFilter = THREE.LinearFilter;
-videoTexture.format = THREE.RGBFormat;
-videoTexture.wrapS = THREE.ClampToEdgeWrapping; // Prevent repeating horizontally
-videoTexture.wrapT = THREE.ClampToEdgeWrapping; // Prevent repeating vertically
-
-// Shader material for video
-const videoMaterial = new THREE.ShaderMaterial({
+// Gradient Shader Material
+const gradientMaterial = new THREE.ShaderMaterial({
   uniforms: {
-    videoTexture: { value: videoTexture },
-    brightness: { value: brightness },
-    offset: { value: new THREE.Vector2(1, 1) },
-    videoSize: { value: videoSize }
+    time: { value: 0.0 }
   },
   vertexShader: `
     varying vec2 vUv;
     void main() {
       vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
   `,
   fragmentShader: `
-    varying vec2 vUv;
-    uniform sampler2D videoTexture;
-    uniform float brightness;
-    uniform vec2 offset;
-    uniform vec2 videoSize;
+  varying vec2 vUv;
+  uniform float time;
+  void main() {
+    // Creating a sepia effect with a sinusoidal gradient
+    float gradient = 0.5 + 0.5 * sin(time + vUv.y * 1.0);
+    
+    // Sepia tones
+   vec3 color1 = vec3(0.9, 0.9, 0.9); // Gray
+      vec3 color2 = vec3(1.0, 1.0, 1.0); // White
+      
+    vec3 mixedColor = mix(color1, color2, gradient);
 
-    void main() {
-      vec2 adjustedUv = (vUv + offset) * videoSize;
-      vec4 videoColor = texture2D(videoTexture, adjustedUv);
-      videoColor.rgb *= brightness;
-      gl_FragColor = vec4(videoColor.rgb, videoColor.a);
-    }
-  `
+    gl_FragColor = vec4(mixedColor, 4.0);
+  }
+`,
 });
 
-
-// Load all models
 function loadModel(i) {
   loader.load(
     `./assets/${i}.fbx`,
     (fbx) => {
-      fbx.scale.set(0.013, 0.013, 0.013);
+      fbx.scale.set(0.014, 0.014, 0.014);
       fbx.rotation.set(0, -0.5, 0);
       fbx.position.set(0.8, -3, 0);
 
@@ -120,60 +89,30 @@ function loadModel(i) {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
-          child.material.side = THREE.DoubleSide; // Enable double-sided rendering
-// Apply video texture to model 13
-if (i === 13) {
-  child.material = videoMaterial; // Apply video shader material
-  // Add text above model 13
-  createText("Model 13", child.position);
+          child.material.side = THREE.DoubleSide; 
 
- 
-
-  child.material = new THREE.MeshStandardMaterial({
-    map: texture,
-  });
-}
-
-          // Apply videoMaterial to 13.fbx and 14.fbx
-          if (i === 14 ) {
-            child.material = videoMaterial;
+          // Apply gradient material to 13.fbx and 14.fbx
+          if (i === 13 || i === 14) {
+            child.material = gradientMaterial;
           }
-
-          // Other material assignments or customizations as needed...
-          // Assign texture to all models
-          const texture = textureLoader.load(`./textures/${i}.png`, (tex) => {
-            tex.minFilter = THREE.LinearMipMapLinearFilter; // Enable mipmaps
-            tex.magFilter = THREE.LinearFilter; // Better texture quality
-            tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Increase sharpness
-          });
-
-          // Apply texture to other models
-          child.material.map = texture;
 
           // Special case for 7.fbx (Image Mesh)
           if (i === 7) {
-            const texture = textureLoader.load('./textures/ME.png', (tex) => {
-              tex.minFilter = THREE.LinearMipMapLinearFilter; // Enable mipmaps
-              tex.magFilter = THREE.LinearFilter; // Better texture quality
-              tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Increase sharpness
-            });
-
+            const texture = textureLoader.load('./textures/ME.png');
             child.material = new THREE.MeshStandardMaterial({
               map: texture,
               transparent: true,
               roughness: 10,
               metalness: 0.4,
             });
-
-            // Adjust position if needed
-            fbx.position.set(0.5, -3, 0.4); 
-            fbx.scale.set(0.013, 0.013, 0.013); // Slightly increase scale for visibility
+            fbx.position.set(0.5, -3, 0.4);
+            fbx.scale.set(0.014, 0.014, 0.014);
           }
 
-          // Special case for model 11: Apply dark blue desaturated color
+          // Special case for model 11: Dark blue desaturated color
           if (i === 11) {
-            child.material.color.set(0x2C3E50); // Dark Blue (Desaturated color)
-            child.material.emissive.set(0x1A2530); // Slightly darker emissive color to enhance the desaturated look
+            child.material.color.set(0x2C3E50);
+            child.material.emissive.set(0x1A2530);
           }
         }
       });
@@ -186,23 +125,17 @@ if (i === 13) {
   );
 }
 
-// Load models from 1 to 14
-for (let i = 1; i <= 14; i++) {
-  loadModel(i);
-}
-
-
-// Load models from 1 to 13
+// Load models 1 to 14
 for (let i = 1; i <= 14; i++) {
   loadModel(i);
 }
 
 // Lighting setup
-const ambientLight = new THREE.AmbientLight(0xffffff1, 6);
+const ambientLight = new THREE.AmbientLight(0xffffff1,7);
 scene.add(ambientLight);
 
-const keyLight = new THREE.DirectionalLight(0xfffff10, 7);
-keyLight.position.set(1, 1, -3.9);
+const keyLight = new THREE.DirectionalLight(0xfffff10,5);
+keyLight.position.set(1, 2, -1);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.width = 4096;
 keyLight.shadow.mapSize.height = 4096;
@@ -223,47 +156,43 @@ controls.rotateSpeed = 0.2;
 
 // Handle mouse inactivity
 let mouseTimer;
-const mouseInactivityDelay = 3000; // 1 second for inactivity
+const mouseInactivityDelay = 3000; 
 
 document.addEventListener("mousemove", () => {
-  controls.autoRotate = false;  // Stop auto-rotation when the mouse moves
-  clearTimeout(mouseTimer);  // Clear any existing timer
+  controls.autoRotate = false;
+  clearTimeout(mouseTimer);
   mouseTimer = setTimeout(() => {
-    controls.autoRotate = true;  // Start auto-rotation after inactivity
-  }, mouseInactivityDelay);  // Wait for 1 second of inactivity
+    controls.autoRotate = true;
+  }, mouseInactivityDelay);
 });
-// Variable to toggle auto-rotation direction
+
+// Auto-rotation toggle
 let rotateDirection = 1;
-
-// Enable auto-rotation
 controls.autoRotate = true;
-controls.autoRotateSpeed = 0.1; // Set the initial speed
+controls.autoRotateSpeed = 0.1;
 
-// Timer for auto-rotation direction change (every 3 seconds)
 let lastDirectionChangeTime = 0;
-const directionChangeInterval = 9000; // Time interval to change direction in ms
+const directionChangeInterval = 9000;
 
+// Animation loop
 // Animation loop
 function animate(timestamp) {
   requestAnimationFrame(animate);
 
-  // Rotate the keyLight around the origin (0, 0, 0)
-  const angle = timestamp * 0.0001; // Control the speed of rotation
-  keyLight.position.x = Math.sin(angle) * 1;
-  
-  keyLight.position.y = 5; // Keep keyLight height constant
-  
-  // Alternate the rotation direction every `directionChangeInterval` milliseconds
-  if (timestamp - lastDirectionChangeTime >= directionChangeInterval) {
-    rotateDirection = -rotateDirection; // Flip the direction
-    controls.autoRotateSpeed = rotateDirection * 0.1;
-    lastDirectionChangeTime = timestamp; // Reset the timer
-  }
-  // Update video texture
-  videoTexture.needsUpdate = true;
+  // Rotate the keyLight smoothly
+  const angle = timestamp * 0.0001; // Adjust speed of rotation here
+  keyLight.position.x = Math.sin(angle) * -4;  // 10 is the radius of rotation on the X-axis
+
+  keyLight.position.y = 10;  // Keep light at a fixed height
+
+
+
+  // Update gradient animation
+  gradientMaterial.uniforms.time.value = timestamp * 0.002;
 
   controls.update();
   renderer.render(scene, camera);
 }
 
 animate();
+
