@@ -63,11 +63,49 @@ video.loop = true;
 video.muted = true; // Mute video to prevent sound issues
 video.play();
 
-// Create the video texture from the video element
+// Shader-based video material
+const brightness = 8.0;
+const videoSize = new THREE.Vector2(0.9, 0.1); // Keep it at 1, 1 to maintain the original size
+
+// Create the video texture
 const videoTexture = new THREE.VideoTexture(video);
 videoTexture.minFilter = THREE.LinearFilter;
 videoTexture.magFilter = THREE.LinearFilter;
 videoTexture.format = THREE.RGBFormat;
+videoTexture.wrapS = THREE.ClampToEdgeWrapping; // Prevent repeating horizontally
+videoTexture.wrapT = THREE.ClampToEdgeWrapping; // Prevent repeating vertically
+
+// Shader material for video
+const videoMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    videoTexture: { value: videoTexture },
+    brightness: { value: brightness },
+    offset: { value: new THREE.Vector2(1, 1) },
+    videoSize: { value: videoSize }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+    }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform sampler2D videoTexture;
+    uniform float brightness;
+    uniform vec2 offset;
+    uniform vec2 videoSize;
+
+    void main() {
+      vec2 adjustedUv = (vUv + offset) * videoSize;
+      vec4 videoColor = texture2D(videoTexture, adjustedUv);
+      videoColor.rgb *= brightness;
+      gl_FragColor = vec4(videoColor.rgb, videoColor.a);
+    }
+  `
+});
+
 
 // Load all models
 function loadModel(i) {
@@ -83,55 +121,33 @@ function loadModel(i) {
           child.castShadow = true;
           child.receiveShadow = true;
           child.material.side = THREE.DoubleSide; // Enable double-sided rendering
+// Apply video texture to model 13
+if (i === 13) {
+  child.material = videoMaterial; // Apply video shader material
+  // Add text above model 13
+  createText("Model 13", child.position);
 
-          // Use MeshStandardMaterial for better quality
-          if (!child.material) {
-            child.material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+ 
+
+  child.material = new THREE.MeshStandardMaterial({
+    map: texture,
+  });
+}
+
+          // Apply videoMaterial to 13.fbx and 14.fbx
+          if (i === 14 ) {
+            child.material = videoMaterial;
           }
 
-          if (Array.isArray(child.material)) {
-            child.material.forEach((mat) => {
-              mat.metalness = 0;
-              mat.roughness = 1;
-              mat.emissiveIntensity = 0;
-              mat.side = THREE.DoubleSide;
-              // Enable subsurface scattering
-              mat.subsurface = 10; // Subsurface scattering intensity
-              mat.subsurfaceColor = new THREE.Color( 0xffffff ); // Subsurface color (for skin or wax-like materials)
-            });
-          } else {
-            child.material.metalness = 0;
-            child.material.roughness = 1;
-            child.material.specular = new THREE.Color(0x000000);
-            child.material.emissiveIntensity = 0;
-            // Enable subsurface scattering
-            child.material.subsurface = 10; // Subsurface scattering intensity
-            child.material.subsurfaceColor = new THREE.Color(0xFFAAAA); // Subsurface color
-          }
- // Enable UV mapping for better texture handling
- if (i === 13 || i === 14) {
-  // Apply video texture only to 13.fbx and 14.fbx
-  child.material.map = videoTexture;
-
-  // Ensure correct UV mapping
-  child.material.map.encoding = THREE.sRGBEncoding;
-  child.material.map.wrapS = THREE.RepeatWrapping;
-  child.material.map.wrapT = THREE.RepeatWrapping;
-  child.material.map.repeat.set(1, 1); // Adjust repetition of the texture if needed
-} 
-
-
-          // Add Ambient Occlusion to all models
-          child.material.aoMap = child.geometry.uvs; // Apply ambient occlusion map
-
-          // Load textures for better quality
+          // Other material assignments or customizations as needed...
+          // Assign texture to all models
           const texture = textureLoader.load(`./textures/${i}.png`, (tex) => {
             tex.minFilter = THREE.LinearMipMapLinearFilter; // Enable mipmaps
             tex.magFilter = THREE.LinearFilter; // Better texture quality
             tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Increase sharpness
           });
 
-          // Assign texture to all models
+          // Apply texture to other models
           child.material.map = texture;
 
           // Special case for 7.fbx (Image Mesh)
@@ -160,7 +176,6 @@ function loadModel(i) {
             child.material.emissive.set(0x1A2530); // Slightly darker emissive color to enhance the desaturated look
           }
         }
-        
       });
 
       scene.add(fbx);
@@ -171,8 +186,14 @@ function loadModel(i) {
   );
 }
 
+// Load models from 1 to 14
+for (let i = 1; i <= 14; i++) {
+  loadModel(i);
+}
+
+
 // Load models from 1 to 13
-for (let i = 1; i <= 13; i++) {
+for (let i = 1; i <= 14; i++) {
   loadModel(i);
 }
 
@@ -188,8 +209,6 @@ keyLight.shadow.mapSize.height = 4096;
 keyLight.shadow.bias = -0.005;
 scene.add(keyLight);
 
-
-
 // Controls setup
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableZoom = false;
@@ -201,7 +220,6 @@ controls.minAzimuthAngle = -Math.PI / 8;
 controls.enableDamping = true;
 controls.dampingFactor = 0.1;
 controls.rotateSpeed = 0.2;
-
 
 // Handle mouse inactivity
 let mouseTimer;
@@ -243,7 +261,6 @@ function animate(timestamp) {
   }
   // Update video texture
   videoTexture.needsUpdate = true;
-
 
   controls.update();
   renderer.render(scene, camera);
