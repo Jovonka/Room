@@ -117,7 +117,7 @@ if (i === 7) {
     color: new THREE.Color(0.5, 0.5, 0.6), // Darken the texture by reducing the color intensity (0.5 makes it darker)
     });
   fbx.scale.set(0.023, 0.015, 0.019);
-  fbx.position.set(1.2, -3.1, 1.2);
+  fbx.position.set(1, -3.1, 1.2);
   model7Meshes.push(child);  // Track mesh for later updates
   child.material = material;  // Apply the material to the model
 }
@@ -163,8 +163,8 @@ controls.enableZoom = false;
 controls.enablePan = false;
 controls.maxPolarAngle = Math.PI / 2.32;
 controls.minPolarAngle = Math.PI / 2.32;
-controls.maxAzimuthAngle = Math.PI / 5;
-controls.minAzimuthAngle = -Math.PI / 8;
+controls.maxAzimuthAngle = Math.PI / 7;
+controls.minAzimuthAngle = -Math.PI / 5;
 controls.enableDamping = true;
 controls.dampingFactor = 0.1;
 controls.rotateSpeed = 0.2;
