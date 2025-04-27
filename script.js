@@ -94,7 +94,7 @@ function loadModel(i) {
     `./assets/${i}.fbx`,
     (fbx) => {
       fbx.scale.set(0.014, 0.014, 0.014);
-      fbx.rotation.set(0, -0.5, 0);
+      fbx.rotation.set(0, -0.7, 0);
       fbx.position.set(0.8, -3, 0);
 
       fbx.traverse((child) => {
