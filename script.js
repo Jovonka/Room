@@ -47,7 +47,23 @@ const loader = new FBXLoader();
 const textureLoader = new TextureLoader();
 const models = [];
 
-// Gradient Shader Material
+// PNG frame setup for animation
+const numFrames = 35; // Number of PNG frames in your animation
+const frameTextures = [];
+let currentFrame = 0;
+let textureUpdateTime = 0;
+const frameDuration = 300; // Time per frame in ms (adjust for animation speed)
+
+
+
+for (let i = 0; i < numFrames; i++) {
+  const texture = textureLoader.load(`./textures/ME-${i + 1}.png`); // No padding required
+  frameTextures.push(texture);
+}
+
+
+
+// Gradient Shader Material (if needed for other objects)
 const gradientMaterial = new THREE.ShaderMaterial({
   uniforms: {
     time: { value: 0.0 }
@@ -63,20 +79,16 @@ const gradientMaterial = new THREE.ShaderMaterial({
   varying vec2 vUv;
   uniform float time;
   void main() {
-    // Creating a sepia effect with a sinusoidal gradient
     float gradient = 0.5 + 0.5 * sin(time + vUv.y * 1.0);
-    
-    // Sepia tones
-   vec3 color1 = vec3(0.8, 0.8, 0.7); // Gray
-      vec3 color2 = vec3(1.0, 1.0, 1.0); // White
-      
+    vec3 color1 = vec3(0.8, 0.8, 0.7);
+    vec3 color2 = vec3(1.0, 1.0, 1.0);
     vec3 mixedColor = mix(color1, color2, gradient);
-
     gl_FragColor = vec4(mixedColor, 4.0);
   }
 `,
 });
-
+let model7Meshes = [];
+// Loading the model
 function loadModel(i) {
   loader.load(
     `./assets/${i}.fbx`,
@@ -96,18 +108,21 @@ function loadModel(i) {
             child.material = gradientMaterial;
           }
 
-          // Special case for 7.fbx (Image Mesh)
-          if (i === 7) {
-            const texture = textureLoader.load('./textures/ME.png');
-            child.material = new THREE.MeshStandardMaterial({
-              map: texture,
-              transparent: true,
-              roughness: 10,
-              metalness: 0.4,
-            });
-            fbx.position.set(0.5, -3, 0.4);
-            fbx.scale.set(0.014, 0.014, 0.014);
-          }
+         // Special case for model 7: frame-by-frame animation
+// Special case for model 7: frame-by-frame animation
+if (i === 7) {
+  const material = new THREE.MeshStandardMaterial({
+    map: frameTextures[0], // Initially set the first frame
+    transparent: true,
+    color: new THREE.Color(0.5, 0.5, 0.6), // Darken the texture by reducing the color intensity (0.5 makes it darker)
+    });
+  fbx.scale.set(0.023, 0.015, 0.019);
+  fbx.position.set(1.2, -3.1, 1.2);
+  model7Meshes.push(child);  // Track mesh for later updates
+  child.material = material;  // Apply the material to the model
+}
+
+
 
           // Special case for model 11: Dark blue desaturated color
           if (i === 11) {
@@ -174,30 +189,43 @@ controls.autoRotateSpeed = 0.1;
 let lastDirectionChangeTime = 0;
 const directionChangeInterval = 9000;
 
-// Animation loop
-// Animation loop
+// Inside the animation loop, add this code to make model 7 face the camera
 function animate(timestamp) {
   requestAnimationFrame(animate);
 
   // Rotate the keyLight smoothly
   const angle = timestamp * 0.0001; // Adjust speed of rotation here
   keyLight.position.x = Math.sin(angle) * -4;  // 10 is the radius of rotation on the X-axis
-
   keyLight.position.y = 10;  // Keep light at a fixed height
+
   if (timestamp - lastDirectionChangeTime >= directionChangeInterval) {
     rotateDirection = -rotateDirection;
     controls.autoRotateSpeed = rotateDirection * 0.09;
     lastDirectionChangeTime = timestamp;
   }
 
-
+  // Update texture for frame-by-frame animation (only for model 7)
+  if (timestamp - textureUpdateTime >= frameDuration) {
+    currentFrame = (currentFrame + 1) % numFrames; // Loop through frames
+    model7Meshes.forEach((mesh) => {
+      mesh.material.map = frameTextures[currentFrame]; // Update texture to the next frame
+      mesh.material.needsUpdate = true;  // Make sure the material is updated
+    });
+    textureUpdateTime = timestamp;
+  }
 
   // Update gradient animation
   gradientMaterial.uniforms.time.value = timestamp * 0.002;
 
+  // Make model 7 always face the camera
+  model7Meshes.forEach((mesh) => {
+    mesh.lookAt(camera.position);  // This will make the mesh face the camera
+  });
+
   controls.update();
   renderer.render(scene, camera);
 }
+
 
 animate();
 
